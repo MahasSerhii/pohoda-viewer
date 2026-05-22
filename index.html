@@ -102,6 +102,7 @@ body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; font-size: 12px; back
 </div>
 <div id="filterbar">
   <span>Agenda: <b>Vydané faktury</b></span>
+  <span id="stat-ico">IČO: <b>–</b></span>
   <span id="stat-count">Záznamy: <b>0</b></span>
   <span id="stat-selected">Označeno: <b>0</b></span>
 </div>
@@ -147,18 +148,25 @@ document.addEventListener('dragover',e=>{e.preventDefault();document.getElementB
 document.addEventListener('dragleave',e=>{if(!e.relatedTarget)document.getElementById('drop-overlay').classList.remove('active');});
 document.addEventListener('drop',e=>{e.preventDefault();document.getElementById('drop-overlay').classList.remove('active');loadFiles(e.dataTransfer.files);});
 function loadFiles(files){
-  allOrders=[];let loaded=0;const names=[];
+  allOrders=[];let loaded=0;const names=[];const icos=new Set();
   Array.from(files).forEach(file=>{
     names.push(file.name);
     const r=new FileReader();
-    r.onload=e=>{allOrders=allOrders.concat(parseXML(e.target.result));loaded++;
-      if(loaded===files.length){renderList();document.getElementById('sb-file').textContent='Soubor: '+names.join(', ');document.getElementById('file-hint').textContent=names.join(', ');}
+    r.onload=e=>{const {orders,ico}=parseXML(e.target.result);allOrders=allOrders.concat(orders);if(ico)icos.add(ico);loaded++;
+      if(loaded===files.length){
+        renderList();
+        document.getElementById('sb-file').textContent='Soubor: '+names.join(', ');
+        document.getElementById('file-hint').textContent=names.join(', ');
+        document.getElementById('stat-ico').innerHTML='IČO: <b>'+(icos.size?[...icos].join(', '):'–')+'</b>';
+      }
     };r.readAsText(file,'UTF-8');
   });
 }
 function getT(el,tag){const f=el.getElementsByTagNameNS('*',tag)[0];return f?f.textContent.trim():'';}
+function vatTextToPercent(v){return({high:21,low:15,third:10,none:0}[v]??parseFloat(v))||0;}
 function parseXML(xmlStr){
   const doc=new DOMParser().parseFromString(xmlStr,'text/xml');
+  const fileIco=doc.documentElement.getAttribute('ico')||'';
   const items=doc.getElementsByTagNameNS('*','dataPackItem');
   const orders=[];
   for(const item of items){
@@ -173,9 +181,10 @@ function parseXML(xmlStr){
       const acc=li.getElementsByTagNameNS('*','accounting')[0];
       const up=parseFloat(getT(li,'unitPrice'))||0;
       const qty=parseFloat(getT(li,'quantity'))||1;
-      const vat=parseFloat(getT(li,'rateVAT'))||0;
+      const vatRaw=getT(li,'rateVAT');
+      const vat=vatTextToPercent(vatRaw);
       const total=up*qty*(1+vat/100);totalPrice+=total;
-      lines.push({text:getT(li,'text'),qty,unit:getT(li,'unit'),vat,unitPrice:up,total,accId:acc?getT(acc,'ids'):'',stockId:getT(li,'ids')});
+      lines.push({text:getT(li,'text'),qty,unit:getT(li,'unit'),vatRaw,vat,unitPrice:up,total,accId:acc?getT(acc,'ids'):'',stockId:getT(li,'ids')});
     }
     orders.push({id,number:getT(hdr,'numberRequested')||id,date:getT(hdr,'date'),dateTax:getT(hdr,'dateTax'),
       paymentType:getT(hdr,'paymentType'),accountingId:getT(hdr,'ids'),
@@ -186,7 +195,7 @@ function parseXML(xmlStr){
       shipStreet:ship?getT(ship,'street'):'',shipZip:ship?getT(ship,'zip'):'',
       lines,total:totalPrice});
   }
-  return orders;
+  return {orders,ico:fileIco};
 }
 function renderList(){
   const tb=document.getElementById('list-body');
@@ -220,7 +229,7 @@ function renderDetail(o){
   document.getElementById('detail-header').textContent=`Detail záznamu – Faktura č. ${o.number}  •  ${o.date}  •  ${cust}`;
   const rows=o.lines.map((l,j)=>`<tr>
     <td>${j+1}</td><td>${esc(l.text)}</td><td class="tr">${l.qty}</td><td>${esc(l.unit)}</td>
-    <td class="tr">${fmt(l.unitPrice)}</td><td class="tr">${l.vat}%</td>
+    <td class="tr">${fmt(l.unitPrice)}</td><td class="tr">${l.vatRaw?l.vatRaw+' ('+l.vat+'%)':l.vat+'%'}</td>
     <td class="tr">${fmt(l.total)}</td><td>${esc(l.accId)}</td><td>${esc(l.stockId)}</td>
   </tr>`).join('');
   document.getElementById('detail-body').innerHTML=`
