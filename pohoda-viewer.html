@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Vydané faktury – POHODA XML Viewer</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; font-size: 12px; background: #d4d0c8; color: #000; display: flex; flex-direction: column; }
+#titlebar { background: linear-gradient(to bottom, #1a5fa8 0%, #0d4a8a 100%); color: #fff; height: 26px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; font-weight: bold; user-select: none; flex-shrink: 0; }
+#titlebar .icon { margin-right: 6px; font-size: 14px; }
+#titlebar .win-btns { margin-left: auto; display: flex; gap: 2px; }
+#titlebar .win-btn { width: 18px; height: 16px; background: #7ba7d8; border: 1px solid #5580b0; color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: default; }
+#titlebar .win-btn:hover { background: #5580b0; }
+#titlebar .win-btn.close:hover { background: #c0392b; }
+#menubar { background: #ece9d8; border-bottom: 1px solid #aca899; height: 22px; display: flex; align-items: stretch; flex-shrink: 0; padding: 0 2px; }
+.menu-item { padding: 0 8px; display: flex; align-items: center; font-size: 12px; cursor: default; color: #000; }
+.menu-item:hover { background: #0a246a; color: #fff; }
+.menu-item u { text-decoration: underline; }
+#toolbar { background: linear-gradient(to bottom, #f0ede6 0%, #d8d4c8 100%); border-bottom: 2px solid #aca899; height: 36px; display: flex; align-items: center; padding: 0 4px; gap: 2px; flex-shrink: 0; }
+.tb-sep { width: 1px; height: 24px; background: #aca899; margin: 0 3px; }
+.tb-btn { width: 32px; height: 28px; border: 1px solid transparent; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: default; font-size: 16px; gap: 1px; color: #333; }
+.tb-btn:hover { border-color: #7ba7d8; background: #dce8f6; }
+.tb-btn.disabled { opacity: 0.35; pointer-events: none; }
+.tb-btn .lbl { font-size: 8px; color: #444; line-height: 1; }
+.tb-label { font-size: 11px; padding: 0 6px; display: flex; align-items: center; gap: 4px; }
+#drop-label { margin-left: auto; font-size: 11px; color: #555; padding-right: 8px; display: flex; align-items: center; gap: 6px; }
+#drop-label label { cursor: pointer; color: #0a246a; text-decoration: underline; }
+#drop-label label:hover { color: #c00; }
+#file-input { display: none; }
+#filterbar { background: #ece9d8; border-bottom: 1px solid #aca899; height: 22px; display: flex; align-items: center; padding: 0 6px; gap: 12px; flex-shrink: 0; font-size: 11px; color: #333; }
+#filterbar b { color: #0a246a; }
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+#list-pane { flex: 1; min-height: 120px; overflow: auto; border-bottom: 3px solid #aca899; background: #fff; }
+#list-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#list-table thead th { background: linear-gradient(to bottom, #dce8f6 0%, #b8d0ee 100%); border-right: 1px solid #9ab4d4; border-bottom: 2px solid #7ba0c8; padding: 3px 6px; text-align: left; font-weight: bold; white-space: nowrap; position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none; font-size: 11px; color: #002060; overflow: hidden; }
+#list-table thead th:hover { background: linear-gradient(to bottom, #c0d8f0 0%, #a0c0e0 100%); }
+.col-resizer { position: absolute; right: 0; top: 0; width: 5px; height: 100%; cursor: col-resize; z-index: 2; background: transparent; }
+.col-resizer:hover, .col-resizing { background: #7ba0c8; }
+#list-table tbody tr { cursor: pointer; border-bottom: 1px solid #e8e4dc; }
+#list-table tbody tr:nth-child(even) td { background: #eef4ff; }
+#list-table tbody tr:nth-child(odd) td { background: #fff; }
+#list-table tbody tr.selected td { background: #0a246a !important; color: #fff !important; }
+#list-table tbody tr:hover:not(.selected) td { background: #d4e8f8 !important; }
+#list-table td { padding: 2px 6px; border-right: 1px solid #ddd; white-space: nowrap; }
+.col-num { width: 110px; } .col-date { width: 80px; } .col-ico { width: 80px; } .col-pay { width: 70px; } .col-acc { width: 90px; } .col-items { width: 50px; text-align: right; }
+#splitter { height: 5px; background: #d4d0c8; cursor: ns-resize; border-top: 1px solid #aca899; border-bottom: 1px solid #aca899; flex-shrink: 0; }
+#splitter:hover { background: #b0c8e8; }
+#detail-pane { height: 260px; min-height: 100px; background: #ece9d8; overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0; }
+#detail-header { background: linear-gradient(to bottom, #1a5fa8 0%, #0d4a8a 100%); color: #fff; font-weight: bold; font-size: 11px; padding: 3px 8px; flex-shrink: 0; }
+#detail-body { flex: 1; overflow: auto; padding: 6px; display: flex; gap: 8px; }
+.detail-section { background: #fff; border: 1px solid #aca899; flex: 1; min-width: 0; }
+.detail-section .sec-title { background: linear-gradient(to bottom, #dce8f6 0%, #b8d0ee 100%); border-bottom: 1px solid #7ba0c8; padding: 2px 6px; font-weight: bold; font-size: 11px; color: #002060; }
+.detail-fields { padding: 4px 6px; display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; font-size: 11px; }
+.detail-fields label { color: #555; white-space: nowrap; }
+.detail-fields span { color: #000; font-weight: 500; }
+#detail-items-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+#detail-items-table th { background: linear-gradient(to bottom, #dce8f6 0%, #b8d0ee 100%); border-right: 1px solid #9ab4d4; border-bottom: 1px solid #7ba0c8; padding: 2px 6px; text-align: left; font-size: 11px; font-weight: bold; color: #002060; white-space: nowrap; }
+#detail-items-table td { padding: 2px 6px; border-bottom: 1px solid #eee; border-right: 1px solid #eee; white-space: nowrap; }
+#detail-items-table tr:nth-child(even) td { background: #eef4ff; }
+#detail-items-table tr:hover td { background: #d4e8f8 !important; }
+.tr { text-align: right; }
+#statusbar { background: #ece9d8; border-top: 1px solid #aca899; height: 20px; display: flex; align-items: center; padding: 0 6px; font-size: 11px; color: #333; gap: 12px; flex-shrink: 0; }
+#statusbar .sep { color: #aca899; }
+#drop-overlay { display: none; position: fixed; inset: 0; background: rgba(10,36,106,.25); z-index: 999; align-items: center; justify-content: center; }
+#drop-overlay.active { display: flex; }
+#drop-box { background: #fff; border: 3px dashed #0a246a; border-radius: 8px; padding: 40px 60px; text-align: center; font-size: 16px; font-weight: bold; color: #0a246a; }
+</style>
+</head>
+<body>
+<div id="titlebar">
+  <span class="icon">📄</span> Vydané faktury – POHODA XML Viewer
+  <div class="win-btns">
+    <div class="win-btn">─</div><div class="win-btn">□</div><div class="win-btn close">✕</div>
+  </div>
+</div>
+<div id="menubar">
+  <div class="menu-item"><u>S</u>oubor</div>
+  <div class="menu-item"><u>Ú</u>pravy</div>
+  <div class="menu-item"><u>Z</u>áznam</div>
+  <div class="menu-item"><u>A</u>kce</div>
+  <div class="menu-item">Se<u>s</u>tavy</div>
+  <div class="menu-item">Nás<u>t</u>roje</div>
+  <div class="menu-item">Nápověd<u>a</u></div>
+</div>
+<div id="toolbar">
+  <div class="tb-btn disabled" title="Nový">📋<span class="lbl">Nový</span></div>
+  <div class="tb-btn disabled" title="Opravit">✏️<span class="lbl">Opravit</span></div>
+  <div class="tb-btn disabled" title="Smazat">🗑️<span class="lbl">Smazat</span></div>
+  <div class="tb-sep"></div>
+  <div class="tb-btn disabled" title="Tisk">🖨️<span class="lbl">Tisk</span></div>
+  <div class="tb-btn disabled" title="Export">📤<span class="lbl">Export</span></div>
+  <div class="tb-sep"></div>
+  <div class="tb-btn disabled" title="Hledat">🔍<span class="lbl">Hledat</span></div>
+  <div class="tb-sep"></div>
+  <span class="tb-label">Otevřít XML:</span>
+  <div id="drop-label">
+    <label for="file-input">📂 Vybrat soubory…</label>
+    <input type="file" id="file-input" accept=".xml" multiple>
+    <span id="file-hint" style="color:#888">nebo přetáhněte XML soubory sem</span>
+  </div>
+</div>
+<div id="filterbar">
+  <span>Agenda: <b>Vydané faktury</b></span>
+  <span id="stat-ico">IČO: <b>–</b></span>
+  <span id="stat-count">Záznamy: <b>0</b></span>
+  <span id="stat-selected">Označeno: <b>0</b></span>
+</div>
+<div id="main">
+  <div id="list-pane">
+    <table id="list-table">
+      <thead><tr>
+        <th class="col-num">Číslo</th>
+        <th class="col-date">Datum</th>
+        <th class="col-date">Datum DPH</th>
+        <th>Firma / Jméno</th>
+        <th style="width:120px">Město</th>
+        <th class="col-ico">IČO</th>
+        <th class="col-pay">Platba</th>
+        <th class="col-acc">Předkontace</th>
+        <th class="col-items">Pol.</th>
+      </tr></thead>
+      <tbody id="list-body">
+        <tr><td colspan="9" style="padding:20px;text-align:center;color:#888;font-style:italic;">Otevřete XML soubor pomocí tlačítka v nástrojové liště</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="splitter"></div>
+  <div id="detail-pane">
+    <div id="detail-header">Detail záznamu</div>
+    <div id="detail-body">
+      <div style="display:flex;align-items:center;justify-content:center;width:100%;color:#888;font-style:italic;font-size:12px;">Vyberte záznam ze seznamu</div>
+    </div>
+  </div>
+</div>
+<div id="statusbar">
+  <span id="sb-info">Připraveno</span>
+  <span class="sep">|</span>
+  <span id="sb-record">Záznam: –</span>
+  <span class="sep">|</span>
+  <span id="sb-file">Soubor: –</span>
+</div>
+<div id="drop-overlay"><div id="drop-box">Přetáhněte XML soubory sem</div></div>
+<script>
+let allOrders=[],selectedIdx=-1;
+document.getElementById('file-input').addEventListener('change',e=>loadFiles(e.target.files));
+document.addEventListener('dragover',e=>{e.preventDefault();document.getElementById('drop-overlay').classList.add('active');});
+document.addEventListener('dragleave',e=>{if(!e.relatedTarget)document.getElementById('drop-overlay').classList.remove('active');});
+document.addEventListener('drop',e=>{e.preventDefault();document.getElementById('drop-overlay').classList.remove('active');loadFiles(e.dataTransfer.files);});
+function loadFiles(files){
+  allOrders=[];let loaded=0;const names=[];const icos=new Set();
+  Array.from(files).forEach(file=>{
+    names.push(file.name);
+    const r=new FileReader();
+    r.onload=e=>{const {orders,ico}=parseXML(e.target.result);allOrders=allOrders.concat(orders);if(ico)icos.add(ico);loaded++;
+      if(loaded===files.length){
+        renderList();
+        document.getElementById('sb-file').textContent='Soubor: '+names.join(', ');
+        document.getElementById('file-hint').textContent=names.join(', ');
+        document.getElementById('stat-ico').innerHTML='IČO: <b>'+(icos.size?[...icos].join(', '):'–')+'</b>';
+      }
+    };r.readAsText(file,'UTF-8');
+  });
+}
+function getT(el,tag){const f=el.getElementsByTagNameNS('*',tag)[0];return f?f.textContent.trim():'';}
+function vatTextToPercent(v){return({high:21,low:15,third:10,none:0}[v]??parseFloat(v))||0;}
+function parseXML(xmlStr){
+  const doc=new DOMParser().parseFromString(xmlStr,'text/xml');
+  const fileIco=doc.documentElement.getAttribute('ico')||'';
+  const items=doc.getElementsByTagNameNS('*','dataPackItem');
+  const orders=[];
+  for(const item of items){
+    const id=item.getAttribute('id')||'';
+    const hdr=item.getElementsByTagNameNS('*','invoiceHeader')[0];if(!hdr)continue;
+    const addr=hdr.getElementsByTagNameNS('*','address')[0];
+    const ship=hdr.getElementsByTagNameNS('*','shipToAddress')[0];
+    const detail=item.getElementsByTagNameNS('*','invoiceDetail')[0];
+    const invItems=detail?detail.getElementsByTagNameNS('*','invoiceItem'):[];
+    const lines=[];let totalPrice=0;
+    for(const li of invItems){
+      const acc=li.getElementsByTagNameNS('*','accounting')[0];
+      const up=parseFloat(getT(li,'unitPrice'))||0;
+      const qty=parseFloat(getT(li,'quantity'))||1;
+      const vatRaw=getT(li,'rateVAT');
+      const vat=vatTextToPercent(vatRaw);
+      const total=up*qty*(1+vat/100);totalPrice+=total;
+      lines.push({text:getT(li,'text'),qty,unit:getT(li,'unit'),vatRaw,vat,unitPrice:up,total,accId:acc?getT(acc,'ids'):'',stockId:getT(li,'ids')});
+    }
+    orders.push({id,number:getT(hdr,'numberRequested')||id,date:getT(hdr,'date'),dateTax:getT(hdr,'dateTax'),
+      paymentType:getT(hdr,'paymentType'),accountingId:getT(hdr,'ids'),
+      name:addr?getT(addr,'name'):'',company:addr?getT(addr,'company'):'',
+      city:addr?getT(addr,'city'):'',street:addr?getT(addr,'street'):'',
+      zip:addr?getT(addr,'zip'):'',ico:addr?getT(addr,'ico'):'',dic:addr?getT(addr,'dic'):'',
+      shipName:ship?getT(ship,'name'):'',shipCity:ship?getT(ship,'city'):'',
+      shipStreet:ship?getT(ship,'street'):'',shipZip:ship?getT(ship,'zip'):'',
+      lines,total:totalPrice});
+  }
+  return {orders,ico:fileIco};
+}
+function renderList(){
+  const tb=document.getElementById('list-body');
+  document.getElementById('stat-count').innerHTML='Záznamy: <b>'+allOrders.length+'</b>';
+  if(!allOrders.length){tb.innerHTML='<tr><td colspan="9" style="padding:20px;text-align:center;color:#888;font-style:italic;">Žádné záznamy</td></tr>';return;}
+  tb.innerHTML=allOrders.map((o,i)=>`<tr data-i="${i}" onclick="selectRow(${i})">
+    <td class="col-num">${o.number}</td>
+    <td class="col-date">${o.date}</td>
+    <td class="col-date">${o.dateTax}</td>
+    <td>${esc(o.company||o.name)}</td>
+    <td>${esc(o.city)}</td>
+    <td class="col-ico">${esc(o.ico)}</td>
+    <td class="col-pay">${esc(o.paymentType)}</td>
+    <td class="col-acc">${esc(o.accountingId)}</td>
+    <td class="col-items tr">${o.lines.length}</td>
+  </tr>`).join('');
+  if(allOrders.length)selectRow(0);
+}
+function selectRow(i){
+  selectedIdx=i;
+  document.querySelectorAll('#list-table tbody tr').forEach(tr=>tr.classList.remove('selected'));
+  const row=document.querySelector(`#list-table tbody tr[data-i="${i}"]`);
+  if(row){row.classList.add('selected');row.scrollIntoView({block:'nearest'});}
+  document.getElementById('stat-selected').innerHTML='Označeno: <b>1</b>';
+  document.getElementById('sb-record').textContent=`Záznam: ${i+1} / ${allOrders.length}`;
+  document.getElementById('sb-info').textContent=`Faktura č. ${allOrders[i].number}`;
+  renderDetail(allOrders[i]);
+}
+function renderDetail(o){
+  const cust=o.company||o.name||'—';
+  document.getElementById('detail-header').textContent=`Detail záznamu – Faktura č. ${o.number}  •  ${o.date}  •  ${cust}`;
+  const rows=o.lines.map((l,j)=>`<tr>
+    <td>${j+1}</td><td>${esc(l.text)}</td><td class="tr">${l.qty}</td><td>${esc(l.unit)}</td>
+    <td class="tr">${fmt(l.unitPrice)}</td><td class="tr">${l.vatRaw?l.vatRaw+' ('+l.vat+'%)':l.vat+'%'}</td>
+    <td class="tr">${fmt(l.total)}</td><td>${esc(l.accId)}</td><td>${esc(l.stockId)}</td>
+  </tr>`).join('');
+  document.getElementById('detail-body').innerHTML=`
+    <div class="detail-section" style="flex:0 0 260px">
+      <div class="sec-title">Záhlaví faktury</div>
+      <div class="detail-fields">
+        <label>Číslo:</label><span>${esc(o.number)}</span>
+        <label>Datum:</label><span>${o.date}</span>
+        <label>Datum DPH:</label><span>${o.dateTax}</span>
+        <label>Předkontace:</label><span>${esc(o.accountingId)}</span>
+        <label>Platba:</label><span>${esc(o.paymentType)}</span>
+      </div>
+    </div>
+    <div class="detail-section" style="flex:0 0 230px">
+      <div class="sec-title">Odběratel</div>
+      <div class="detail-fields">
+        <label>Firma:</label><span>${esc(o.company)}</span>
+        <label>Jméno:</label><span>${esc(o.name)}</span>
+        <label>Ulice:</label><span>${esc(o.street)}</span>
+        <label>Město:</label><span>${esc(o.city)}</span>
+        <label>PSČ:</label><span>${esc(o.zip)}</span>
+        <label>IČO:</label><span>${esc(o.ico)}</span>
+        <label>DIČ:</label><span>${esc(o.dic)}</span>
+      </div>
+    </div>
+    <div class="detail-section" style="flex:0 0 200px">
+      <div class="sec-title">Dodací adresa</div>
+      <div class="detail-fields">
+        <label>Jméno:</label><span>${esc(o.shipName)}</span>
+        <label>Ulice:</label><span>${esc(o.shipStreet)}</span>
+        <label>Město:</label><span>${esc(o.shipCity)}</span>
+        <label>PSČ:</label><span>${esc(o.shipZip)}</span>
+      </div>
+    </div>
+    <div class="detail-section" style="flex:1;overflow:auto">
+      <div class="sec-title">Položky faktury (${o.lines.length})</div>
+      <table id="detail-items-table">
+        <thead><tr>
+          <th>#</th><th>Popis</th><th class="tr">Množ.</th><th>Jedn.</th>
+          <th class="tr">Jedn.cena</th><th class="tr">DPH</th>
+          <th class="tr">Celkem</th><th>Předkont.</th><th>Kód zásoby</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+const splitter=document.getElementById('splitter'),detailPane=document.getElementById('detail-pane');
+let dragging=false,startY=0,startH=0;
+splitter.addEventListener('mousedown',e=>{dragging=true;startY=e.clientY;startH=detailPane.offsetHeight;document.body.style.cursor='ns-resize';e.preventDefault();});
+document.addEventListener('mousemove',e=>{if(!dragging)return;const d=startY-e.clientY;detailPane.style.height=Math.max(80,Math.min(600,startH+d))+'px';});
+document.addEventListener('mouseup',()=>{dragging=false;document.body.style.cursor='';});
+document.addEventListener('keydown',e=>{
+  if(!allOrders.length)return;
+  if(e.key==='ArrowDown'){e.preventDefault();selectRow(Math.min(selectedIdx+1,allOrders.length-1));}
+  if(e.key==='ArrowUp'){e.preventDefault();selectRow(Math.max(selectedIdx-1,0));}
+});
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmt(v){const n=parseFloat(v);return isNaN(n)?(v||''):n.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+// ── Column resize ──────────────────────────────────────────────────────────
+(function(){
+  const table=document.getElementById('list-table');
+  let resizing=null,startX=0,startW=0;
+  function initResizers(){
+    table.querySelectorAll('thead th').forEach(th=>{
+      th.style.position='relative';
+      if(!th.querySelector('.col-resizer')){
+        const r=document.createElement('div');r.className='col-resizer';
+        r.addEventListener('mousedown',e=>{e.stopPropagation();e.preventDefault();
+          resizing=th;startX=e.clientX;startW=th.offsetWidth;
+          r.classList.add('col-resizing');document.body.style.cursor='col-resize';
+        });th.appendChild(r);
+      }
+    });
+  }
+  document.addEventListener('mousemove',e=>{
+    if(!resizing)return;
+    const w=Math.max(40,startW+(e.clientX-startX));
+    resizing.style.width=w+'px';resizing.style.minWidth=w+'px';
+  });
+  document.addEventListener('mouseup',()=>{
+    if(!resizing)return;
+    resizing.querySelector('.col-resizer').classList.remove('col-resizing');
+    resizing=null;document.body.style.cursor='';
+  });
+  // init after DOM is ready
+  initResizers();
+  // re-init after list renders
+  const origRender=window.renderList;
+  window.renderList=function(){origRender();initResizers();};
+})();
+</script>
+</body>
+</html>
